@@ -34,8 +34,6 @@ X=mindata.values
 new_model1 = Discriminator1(input_size=columnstestdata,hidden_size=128,output_size=1)  # 调用模型Model
 new_model1.load_state_dict(torch.load("D:\PycharmProjects\sci4\程序\model_parameter1.pth"))  # 加载模型参数
 
-# print('min',-1*new_model(torch.Tensor([-0.9704849042028966,-0.6394300237143768])).detach().numpy())
-# print('maj',-1*new_model1(torch.Tensor([-0.9704849042028966,-0.6394300237143768])).detach().numpy())
 
 ##
 pro_min=pd.read_csv(r'D:\PycharmProjects\sci4\数据\min.csv',header=None,skiprows=1)
@@ -77,17 +75,4 @@ plt.scatter(mindata.values[:,0],mindata.values[:,1],alpha=0.5,c='green',label='m
 plt.scatter(X_sample.iloc[:,0],X_sample.iloc[:,1],label='synthetic data', c='red', marker='x')
 plt.title('DEM-WGAN')
 plt.legend(loc='upper right')
-# plt.savefig('D:\PycharmProjects\pythonProject2\sci4\数据/DEM-GAN.eps',
-#             format='eps',dpi=500,bbox_inches='tight')
 plt.show()
-
-# plt.scatter(majdata.values[:,0],majdata.values[:,1],alpha=0.5,label='majority class',
-#             facecolors='none',edgecolors='blue')
-# plt.scatter(mindata.values[:,0],mindata.values[:,1],alpha=0.5,c='green',label='minority class',
-#             marker='*')
-# # plt.scatter(X_sample.iloc[:,0],X_sample.iloc[:,1],label='synthetic data', c='red', marker='x')
-# plt.title('yeast6')
-# plt.legend(loc='upper right')
-# plt.savefig('D:\PycharmProjects\pythonProject2\sci4\数据/yeast6.eps',
-#             format='eps',dpi=500,bbox_inches='tight')
-# plt.show()
