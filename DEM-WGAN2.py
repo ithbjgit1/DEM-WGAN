@@ -158,7 +158,5 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.grid(linestyle='-.')  #设置网格
 plt.xticks(range(0, 510, 100))
-# plt.savefig('E:\pythonprojrct\生成对抗网络\GAN采样实现/a.eps',format='eps',dpi=1000,bbox_inches='tight')  #保存图像eps格式 1000像素 去掉周围空白
-# plt.savefig('D:\PycharmProjects\pythonProject2\sci2\图片/loss.eps',format='eps',dpi=1000)
 plt.show()
 
