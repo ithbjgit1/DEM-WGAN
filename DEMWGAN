@@ -1,0 +1,297 @@
+import numpy as np
+from matplotlib import pyplot as plt
+import pandas as pd
+from sklearn.metrics import roc_curve
+from sklearn.preprocessing import LabelEncoder
+import torch.nn as nn
+import torch.optim as optim
+import torch
+import smote_variants as sv
+import math
+import random
+import warnings
+import torch
+from scipy.spatial import distance_matrix
+from sklearn import svm
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize, fsolve
+from scipy.spatial.distance import cdist
+from sklearn.datasets import make_classification
+from sklearn.model_selection import StratifiedKFold
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from scipy.optimize import minimize
+from sklearn.svm import SVC
+from torch import nn, optim
+import pandas as pd
+from matplotlib import pyplot as plt
+from sklearn import tree
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import confusion_matrix as CM
+from sklearn.metrics import accuracy_score as Accuracy
+from sklearn.metrics import precision_score as Precision
+from sklearn.metrics import recall_score as Recall
+from sklearn.metrics import f1_score as F1_measure
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score as AUC
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import cycle
+from sklearn import svm, datasets
+from sklearn.metrics import roc_curve, auc
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import LabelEncoder
+from sklearn.neighbors import NearestNeighbors
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(42)
+np.random.seed(42)
+torch.set_default_tensor_type(torch.DoubleTensor)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(42)
+np.random.seed(42)
+
+
+
+'---创建生成器与判别器-----'
+'判别器'
+class Discriminator1(nn.Module):
+    def __init__(self,input_size,hidden_size,output_size):
+        super(Discriminator1, self).__init__()
+        self.disc=nn.Sequential(nn.Linear(input_size,hidden_size),
+                                nn.Linear(hidden_size, 512),
+                                nn.LeakyReLU(0.1),
+                                nn.Linear(512, hidden_size),
+                                nn.LeakyReLU(0.1),
+                                nn.Linear(hidden_size,output_size),
+                                )
+
+    def forward(self,disc_data):
+        dic_output=self.disc(disc_data)
+        return dic_output
+'生成器'
+class Generator(nn.Module):
+    def __init__(self,input_size,hidden_size,output_size):
+        '''input_size 是指输入到生成器数据的维度，可以自定义，
+        output_size是指输出到判别器的维度必须和源数据的维度相同，因为此时判别器需要判断是真数据还是假数据'''
+        super(Generator, self).__init__()
+        self.gen=nn.Sequential(nn.Linear(input_size,hidden_size),
+                               nn.Linear(hidden_size,128),
+                               # nn.Linear(128, 256),
+                               nn.Linear(128, hidden_size),
+                               # nn.Linear(256, hidden_size),
+                               nn.LeakyReLU(0.1),
+                               nn.Linear(hidden_size,output_size),
+                               )
+
+    def forward(self,gen_data):
+        gen_data_output=self.gen(gen_data)
+        return gen_data_output
+
+
+class DEMWGAN:
+    def __init__(self, data_path,epochs, G_input_size,G_hidden_size,D_hidden_size):
+        self.epochs = epochs
+        self.data_path = data_path
+        self.G_input_size = G_input_size
+        self.G_hidden_size = G_hidden_size
+        self.D_hidden_size = D_hidden_size
+        self.load_data()
+
+
+
+    def load_data(self):
+        data1 = pd.read_csv(self.data_path, header=None)
+        # y_label = data1.iloc[:, -1].str.strip()
+        y_label = data1.iloc[:, -1]
+        le = LabelEncoder()
+        le.fit(y_label)
+        labeldata = np.array(le.transform(y_label)).reshape(-1, 1)
+        columnstestdata = data1.shape[1] - 1
+        data2 = pd.concat([data1.iloc[:, 0:columnstestdata], pd.DataFrame(labeldata)], axis=1)
+        data2.columns = [i for i in range(0, columnstestdata + 1)]
+
+        self.data = data2
+        self.X = data2.values[:, :-1]
+        self.y = data2.values[:, -1]
+        # print(self.y)
+
+        self.minority_data = self.X[self.y == 1]
+        self.majority_data = self.X[self.y == 0]
+
+    def fit(self):
+        real_data = torch.Tensor(self.majority_data).to(device)
+        G_output_size = self.majority_data.shape[1]
+        D_input_size = self.majority_data.shape[1]
+        D_output_size = 1
+
+        gen = Generator(input_size=self.G_input_size, hidden_size=self.G_hidden_size, output_size=G_output_size).to(device)
+        disc = Discriminator1(input_size=D_input_size, hidden_size=self.D_hidden_size, output_size=D_output_size).to(device)
+        optim_gen = optim.RMSprop(gen.parameters(), lr=0.001)
+        optim_disc = optim.RMSprop(disc.parameters(), lr=0.00001)
+        batch = self.majority_data.shape[0]
+        lossD = []
+        lossG = []
+        for epoch in range(self.epochs):
+            '''对数据进行切分，每一次得到batch个数据'''
+            '''训练判别器'''
+            loss_D1 = []
+            for i in range(10):
+                optim_disc.zero_grad()
+                disc_real_data = disc(real_data)
+
+                # train on fake
+                noise = torch.randn((batch, self.G_input_size)).to(device)
+                gen_data1 = gen(noise)
+                gen_data2 = disc(gen_data1.detach())
+                loss_D = -torch.mean(disc_real_data) + torch.mean(gen_data2)
+                loss_D1.append(loss_D.detach().cpu().numpy())
+                loss_D.backward()
+                optim_disc.step()
+                for p in disc.parameters():
+                    p.data.clamp_(-0.01, 0.01)
+
+            lossD.append(loss_D1[-1])
+
+            '''生成器的损失'''
+            ##生成器的反向传播
+            optim_gen.zero_grad()
+            noise = torch.randn((batch, self.G_input_size)).to(device)
+            gen_data4 = gen(noise)
+            gen_data3 = disc(gen_data4)
+            loss_G = -torch.mean(gen_data3)
+            lossG.append(loss_G.detach().cpu().numpy())
+            loss_G.backward()
+            optim_gen.step()
+
+            if epoch % 10 == 0:
+                print("Epoch: {}, loss_D:{} ,loss_G:{}"
+                      .format(epoch, lossD[-1], lossG[-1]))
+
+
+        torch.save(disc.state_dict(), "D:\pythonproject\pythonProject\DEMWGAN\程序\model_parameter1.pth")
+        '''loss函数画图'''
+        plt.plot(lossG, c='green', label='loss G')
+        plt.title('Loss Function')
+        plt.plot(lossD, c='red', label='loss D')
+        plt.legend(loc='upper right')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.grid(linestyle='-.')  # 设置网格
+        plt.xticks(range(0, 510, 100))
+        # plt.savefig('E:\pythonprojrct\生成对抗网络\GAN采样实现/a.eps',format='eps',dpi=1000,bbox_inches='tight')  #保存图像eps格式 1000像素 去掉周围空白
+        # plt.savefig('D:\PycharmProjects\pythonProject2\sci2\图片/loss.eps',format='eps',dpi=1000)
+        plt.show()
+
+        ###判断生成的数据
+        new_model = Discriminator1(input_size=D_input_size, hidden_size=self.D_hidden_size,
+                                   output_size=D_output_size).to(device)  # 调用模型Model
+        new_model.load_state_dict(torch.load("D:\pythonproject\pythonProject\DEMWGAN\程序\model_parameter1.pth"))
+        maj_mean = np.round(np.mean(new_model(real_data).detach().cpu().numpy(), axis=0), 5)
+        sys = []
+        sys_number = self.majority_data.shape[0] - self.minority_data.shape[0]
+        oversampler = sv.SMOTE(random_state=42)
+        while len(sys)<sys_number:
+            X_samp, y_samp = oversampler.sample(self.X, self.y)
+            X_new, y_new = X_samp[self.X.shape[0]:], y_samp[self.X.shape[0]:]
+            for i in range(X_new.shape[0]):
+                num1 = np.round(new_model(torch.Tensor(X_new[i]).to(device)).detach().cpu().numpy()[0], 5)
+                if num1!=maj_mean:
+                    sys.append(X_new[i])
+                    if len(sys)==sys_number:
+                        break
+        sys = np.array(sys)
+        plt.scatter(self.majority_data[:, 0], self.majority_data[:, 1],alpha=0.5,label='majority class',
+            facecolors='none',edgecolors='blue')
+        plt.scatter(self.minority_data[:, 0], self.minority_data[:, 1],alpha=0.5,c='green',label='minority class',marker='*')
+        plt.scatter(sys[:,0], sys[:,1],label='synthetic data', c='red', marker='x')
+        # 添加颜色条
+        # cbar = plt.colorbar()
+        # cbar.set_label('Data gravitation')
+        plt.legend(loc='upper right')
+        # plt.savefig('D:\pythonproject\pythonProject\GFow\画图/fig2.eps', format='eps',
+        #             dpi=300, bbox_inches='tight')
+        plt.show()
+
+        oversample_X = np.vstack((self.majority_data, self.minority_data, sys))
+        oversample_y = np.vstack((np.array([0] * (self.majority_data.shape[0])).reshape(-1, 1),
+                                  np.array([1] * (self.majority_data.shape[0])).reshape(-1, 1)))
+        return oversample_X, oversample_y
+
+
+if __name__ == "__main__":
+    model = DEMWGAN(data_path=r'D:\pythonproject\pythonProject\Imbalanced data\ecoli\ecoli-0-1_vs_2-3-5.dat', epochs=500, G_input_size=64, G_hidden_size=128, D_hidden_size=128)
+    # model.fit()
+    train_data, label = model.fit()
+    smote_X = train_data
+    smote_Y = label
+    list1_ACC = []  # 存储准确率
+    list2_Pre = []  # 存储精准率
+    list3_Recall = []  # 存储召回率
+    list4_f1 = []  # 存储f1_measure
+    list5_G_means = []  # 存储G—means
+    list6_FPR = []  # 存储假正率
+    list7_spe = []  # 存储特效性
+    list8_AUC = []  ##存储AUC面积
+
+    # 分类器
+    classify = tree.DecisionTreeClassifier(random_state=42)
+    # classify = SVC(probability=True, random_state=42)  # 此时用的是支持向量机模型
+
+    # 进行交叉验证
+    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    # kf=KFold(n_splits=5)
+    smote_X = np.array(smote_X)
+    smote_Y = np.array(smote_Y)
+
+    for i, (train, test) in enumerate(kf.split(smote_X, smote_Y)):
+        # print('aa',train)
+        classify = classify.fit(smote_X[train], smote_Y[train])
+        # classify = classify.fit(smote_X[train], smote_Y[train],sample_weight=[SMOTE_list[i] for i in train.tolist()])
+        smote_y_predict = classify.predict(smote_X[test])  ## 运用smote算法得到测试集预测之后的分类
+        # print('bb',smote_y_predict)
+        smote_score = classify.predict_proba(smote_X[test])
+        cm = CM(smote_Y[test], smote_y_predict, labels=[1, 0])  # 输出混淆矩阵
+        smote_ACC = Accuracy(smote_Y[test], smote_y_predict)  # 输出准确率
+        smote_precision = Precision(smote_Y[test], smote_y_predict)  # 精准率
+        smote_recall = Recall(smote_Y[test], smote_y_predict)  # 召回率
+        smote_F1measure = F1_measure(smote_Y[test], smote_y_predict)  # f1_measure 越接近于1越好
+        smote_TP = cm[0, 0]  # 原本正类，预测后也是正类
+        smote_TN = cm[1, 1]  # 原本是负类，预测后也是负类
+        smote_FP = cm[1, 0]  # 原本是负类，预测后是正类
+        smote_FN = cm[0, 1]  # 原本是正类，预测后成为负类
+        smote_G_means = (smote_recall * ((smote_TN / (smote_TN + smote_FP)))) ** 0.5  # G_means计算方法
+        smote_FPR = smote_FP / (np.sum(cm[1, :]))  # 假正率 负类中被错误分类的比例
+        smote_Spe = smote_TN / np.sum(cm[1, :])  # 特效性 负类中被正确分类的比例
+
+        list1_ACC.append(smote_ACC)
+        list2_Pre.append(smote_precision)
+        list3_Recall.append(smote_recall)
+        list4_f1.append(smote_F1measure)
+        list6_FPR.append(smote_FPR)
+        list7_spe.append(smote_Spe)
+        list5_G_means.append(smote_G_means)
+        # Roc曲线 与 AUC面积
+        smote_rocfpr, smote_rocrecallr, smote_threshold = roc_curve(smote_Y[test], smote_score[:, 1],
+                                                                    pos_label=1)
+        smote_AUC_area = AUC(smote_Y[test], smote_score[:, 1])  # smote之后的AUC面积
+        list8_AUC.append(smote_AUC_area)
+
+    print('f1', np.round(np.mean(list4_f1), 4))
+    print('g', np.round(np.mean(list5_G_means), 4))
+    print('auc', np.round(np.mean(list8_AUC, ), 4))
+    # train_data , label = model.train()
